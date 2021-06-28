@@ -12,21 +12,36 @@
  */
 package me.chuwy.otusfp
 
+import org.specs2.mutable.Specification
+import cats.effect.testing.specs2.CatsEffect
+
+import cats.{ MonadError, Monad }
 import cats.data.State
 
-import org.specs2.mutable.Specification
 import cats.implicits._
+import cats.effect.IO
 
-import algebra.Console._
+import ErrorSpec._
 
-class ConsoleSpec extends Specification {
-  "ConsoleSpec" should {
-    "return bob" in {
-      val doubleGreet = greetSomeone[WorldState] *> greetSomeone[WorldState]
-      val (state, _) = doubleGreet.run(initial).value
+class ErrorSpec extends Specification with CatsEffect {
+  "Either" should {
+    "can short-circuit" in {
 
-      // Тест валится
-      state.events.reverse must beEmpty
+      type WithThrowable[F[_]] = MonadError[F, Throwable]
+
+
+      def withError[F[_]: WithThrowable]: F[Int] =
+        for {
+          a <- MonadError[F, Throwable].pure(3)
+          b <- MonadError[F, Throwable].pure(5)
+          c <- MonadError[F, Throwable].raiseError[Int](new RuntimeException("Boom!"))
+        } yield a + b + c
+
+
+      val a = withError[IO]
+      a.map { result =>
+        result must beEqualTo(3)
+      }
     }
   }
 }
