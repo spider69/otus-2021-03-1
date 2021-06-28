@@ -21,14 +21,11 @@ import cats.data.State
 import cats.implicits._
 import cats.effect.IO
 
-import ErrorSpec._
-
 class ErrorSpec extends Specification with CatsEffect {
   "Either" should {
     "can short-circuit" in {
 
       type WithThrowable[F[_]] = MonadError[F, Throwable]
-
 
       def withError[F[_]: WithThrowable]: F[Int] =
         for {
