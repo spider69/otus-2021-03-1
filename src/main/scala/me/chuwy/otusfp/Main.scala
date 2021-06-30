@@ -39,7 +39,9 @@ object Main extends IOApp.Simple {
   def getFile[F[_]]: Resource[F, FileReader] = ???
   def readBytes[F[_]](fileReader: FileReader): Stream[F, Byte] = ???
 
-  def flatMappedResource[F[_]: MonadCancel] = Stream.resource(getFile[F]).flatMap(readBytes)
+  type MonadCT[F[_]] = MonadCancel[F, Throwable]
+  def flatMappedResource[F[_]: MonadCT] = Stream.resource(getFile[F]).flatMap(readBytes)
+
 
   val withSleep = Stream.fixedDelay[IO](1.second).evalMap(_ => IO.println("Hello")).take(4)
 
@@ -49,7 +51,7 @@ object Main extends IOApp.Simple {
   def q: Queue[IO, Int] = ???
   def fromQueue = Stream.fromQueueUnterminated(q)
 
-  def pipeExample[F[_]: MonadCancel]: Stream[F, String] =
+  def pipeExample[F[_]: MonadCT]: Stream[F, String] =
     flatMappedResource[F]
       .through(utf8Decode[F])
       .through(lines)
