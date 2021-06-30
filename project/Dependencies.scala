@@ -24,6 +24,7 @@ object Dependencies {
     "io.circe"                   %% "circe-generic"        % V.circe,
 
     "org.typelevel"              %% "cats-effect"          % V.catsEffect,
+
     "co.fs2"                     %% "fs2-io"               % V.fs2,
 
     "org.typelevel"              %% "cats-effect-testing-specs2" % V.catsEffectTest % Test,
