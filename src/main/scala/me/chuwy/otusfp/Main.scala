@@ -4,9 +4,6 @@ import cats.effect.{IOApp, IO}
 
 object Main extends IOApp.Simple {
 
-  def run: IO[Unit] = {
-    Restful.serverBuilder.resource.use { _ =>
-      IO.never
-    }
-  }
+  def run: IO[Unit] =
+    IO.unit
 }
