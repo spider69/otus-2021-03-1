@@ -1,44 +1,85 @@
 package me.chuwy.otusfp
 
-import cats.data.Kleisli
+import scala.concurrent.ExecutionContext.global
+
+import cats.data.{OptionT, Kleisli, ReaderT}
 
 import cats.effect._
 
-import org.http4s.{Request, Http, HttpApp, Response, HttpRoutes}
+import org.http4s.{Request, AuthedRoutes, HttpApp, HttpRoutes, Status, Header}
 import org.http4s.blaze.server.BlazeServerBuilder
 import org.http4s.dsl.io._
 import org.http4s.implicits._
-import org.http4s.server.Router
-
+import org.http4s.server.{AuthMiddleware, Router}
+import org.typelevel.ci.CIString
 
 object Restful {
 
-  import scala.concurrent.ExecutionContext.global
+  type RIO[Env, A] = Kleisli[IO, Env, A]
 
-  val req: Kleisli[IO, Request[IO], Response[IO]] = ???
-  val next: Kleisli[IO, Response[IO], String] = ???
+  val r1 = Kleisli { (s: String) => IO.pure(s.length) }
+  val r2 = Kleisli { (s: Int) => IO.pure(s) }
+  val r3 = Kleisli { (s: Int) => IO.pure(s.toLong) }
 
-  val a = req.andThen(next)
+//  val result: Kleisli[IO, String, Int] = for {
+//    l1 <- r1
+//    l2 <- r2
+//  } yield l1 + l2
 
-  // ZIO[Any, Throwable, A] = cats.effect.IO[A] = zio Task
+  def f1: Int => String = ???
+  def f2: String => Long = ???
+
+  def run1 = f1.andThen(f2)
+  def run2 = r1.andThen(r2).andThen(r3)
+  def run3 = r1.run("hello")
+
+  case class User(name: String, id: Int)
+
+  def authUser: Kleisli[OptionT[IO, *], Request[IO], User] =
+    Kleisli { (req: Request[IO]) =>
+      req.headers.get(CIString("user")) match {
+        case Some(userHeaders) =>
+          OptionT.liftF(IO.pure(User(userHeaders.head.value, 1)))
+        case None =>
+          OptionT.liftF(IO.pure(User("anon", 0)))
+      }
+    }
+
+  def addHeader(businessLogic: HttpRoutes[IO]): HttpRoutes[IO] = {
+    val header: Header.ToRaw = "X-Otus" -> "webinar"
+    Kleisli { (req: Request[IO]) =>
+      businessLogic.map {         // What's the difference with service(req).map ...
+        case Status.Successful(resp) =>
+          resp.putHeaders(header)
+        case resp => resp
+      }.apply(req)
+    }
+  }
 
   val serviceOne: HttpRoutes[IO] =
     HttpRoutes.of {
       case req @ GET -> Root / "hello" / name =>
-        hello(name)
+        Ok(s"Hello, $req")
     }
 
-  def hello(name: String): IO[Response[IO]] =
-    Ok(s"hello, $name")
+  val authMiddleware = AuthMiddleware(authUser)
 
-  def serviceTwo: HttpRoutes[IO] =
-    HttpRoutes.of {
-      case GET -> Root / "health"  =>
-
-        IO.println("Health endpoint") *> Ok("Doing fine")
+  def authedService: AuthedRoutes[User, IO] =
+    AuthedRoutes.of {
+      case GET -> Root / "hello" / name as user =>
+        user match {
+          case User(_, 0) => Ok("You're anonymous")
+          case User(userName, _) => Ok(s"You're ${userName} accessing hello/${name}")
+        }
     }
 
-  val httpApp = Router("/" -> serviceOne, "/api" -> serviceTwo).orNotFound
+  val httpApp: HttpApp[IO] = Router(
+    "/" -> addHeader(serviceOne),
+    "/auth" -> authMiddleware(authedService)
+  ).orNotFound
 
-  val builder = BlazeServerBuilder[IO](global).bindHttp(port = 8080, host = "localhost").withHttpApp(httpApp)
+  val builder =
+    BlazeServerBuilder[IO](global)
+      .bindHttp(port = 8080, host = "localhost")
+      .withHttpApp(httpApp)
 }
