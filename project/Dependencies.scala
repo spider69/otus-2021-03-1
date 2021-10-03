@@ -6,6 +6,7 @@ object Dependencies {
     // Scala
     val decline          = "2.0.0"
     val circe            = "0.14.1"
+    val logback          = "1.2.5"
 
     val catsEffect       = "3.1.1"
     val catsEffectTest   = "1.1.1"
@@ -33,6 +34,7 @@ object Dependencies {
     "org.http4s"                 %% "http4s-blaze-client"  % V.http4sVersion,
 
     "org.http4s"                 %% "http4s-circe"         % V.http4sVersion,
+    "ch.qos.logback"             %  "logback-classic"      % V.logback,
     "io.circe"                   %% "circe-literal"        % V.circe,
 
     "org.typelevel"              %% "cats-effect-testing-specs2" % V.catsEffectTest % Test,
